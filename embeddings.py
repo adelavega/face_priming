@@ -10,37 +10,42 @@ from src.facenet.facenet.src.align import detect_face
 
 MODEL_DIR = str(Path('models/20180402-114759/').absolute())
 
-def get_embeddings(image_paths, image_size=160,margin=44):  
+def chunks(l, n):
+    # For item i in a range that is a length of l,
+    return [l[i:i+n]for i in range(0, len(l), n)]
+
+def get_embeddings(images, batch_size=2000):
     """ Get embeddings by class
     Args:
-        image_paths - Paths to images
-        image_size = Imageize (height, width) in pixels.
-        margin - Margin for the crop around the bounding box (height, width) in pixels.
+        images - Cropped faces images
+        batch_size - Size of batch to feed into network
     Returns:
-        Numpy array of images x embeddings, and a label array
+        Numpy array of images x embeddings
     """
     with tf.Graph().as_default():
-        with tf.Session() as sess:
+        with tf.compat.v1.Session() as sess:
             # Load the model
             facenet.load_model(MODEL_DIR)
-
+            graph = tf.compat.v1.get_default_graph()
             # Get input and output tensors
-            images_placeholder = tf.get_default_graph().get_tensor_by_name("input:0")
-            embeddings = tf.get_default_graph().get_tensor_by_name("embeddings:0")
-            phase_train_placeholder = tf.get_default_graph().get_tensor_by_name("phase_train:0")
+            images_placeholder = graph.get_tensor_by_name("input:0")
+            embeddings = graph.get_tensor_by_name("embeddings:0")
+            phase_train_placeholder = graph.get_tensor_by_name("phase_train:0")
 
-            # Get images for the batch
-            images, corresponding_paths = load_and_align_data(image_paths, image_size, margin)
+            all_embeds = []
 
+            # Feed to network to get embeddings
             print('Calculating embeddings...')
-            # Use the facenet model to calcualte embeddings
-            embed = sess.run(embeddings, 
-                             feed_dict={
-                                 images_placeholder: images, 
-                                 phase_train_placeholder:False}
-                            )
+            for batch in tqdm.tqdm_notebook(chunks(images, batch_size)):
+                # Use the facenet model to calculate embeddings
+                embeds = sess.run(embeddings,
+                                 feed_dict={
+                                     images_placeholder: batch,
+                                     phase_train_placeholder:False}
+                                )
+                all_embeds.append(embeds)
 
-        return embed, images, corresponding_paths
+        return np.vstack(all_embeds)
 
 def crop_face(img, bounding_box, margin=44, target_size=160):
     """ Crop, resize and prewhiten face """
@@ -53,14 +58,14 @@ def crop_face(img, bounding_box, margin=44, target_size=160):
     bb[3] = np.minimum(det[3]+margin/2, current_size[0])
     cropped = img[bb[1]:bb[3],bb[0]:bb[2],:]
     aligned = resize(cropped, (target_size, target_size), mode='constant', anti_aliasing=False)
-    
+
     return facenet.prewhiten(aligned)
 
 def _load_detect_nets():
     """ Load MTCNN_face_detection_alignment """
     with tf.Graph().as_default():
-        gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=1)
-        sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options, log_device_placement=False))
+        sess = tf.compat.v1.Session(
+            config=tf.compat.v1.ConfigProto(log_device_placement=False))
         with sess.as_default():
             nets = detect_face.create_mtcnn(sess, None)
     return nets
@@ -71,7 +76,8 @@ def _detect_faces(img, nets, minsize=20, threshold=[0.6, 0.7, 0.7], factor=0.709
     bounding_boxes, _ = detect_face.detect_face(img, minsize, pnet, rnet, onet, threshold, factor)
     return bounding_boxes
 
-def load_and_align_data(image_paths, target_size, margin=None, minsize=None, threshold=None, factor=None):
+def load_detect_crop(image_paths, target_size=160, margin=44,
+                        minsize=None, threshold=None, factor=None):
     print('Creating networks and loading parameters')
     nets = _load_detect_nets()
 
