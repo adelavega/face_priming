@@ -76,8 +76,7 @@ def _detect_faces(img, nets, minsize=20, threshold=[0.6, 0.7, 0.7], factor=0.709
     bounding_boxes, _ = detect_face.detect_face(img, minsize, pnet, rnet, onet, threshold, factor)
     return bounding_boxes
 
-def load_detect_crop(image_paths, target_size=160, margin=44,
-                        minsize=None, threshold=None, factor=None):
+def load_detect_crop(image_paths, target_size=160, margin=44, **kwargs):
     print('Creating networks and loading parameters')
     nets = _load_detect_nets()
 
@@ -86,7 +85,7 @@ def load_detect_crop(image_paths, target_size=160, margin=44,
     cropped_images = []
     for path in tqdm.tqdm_notebook(image_paths):
         img = imageio.imread(path)
-        bounding_boxes = _detect_faces(img, nets)
+        bounding_boxes = _detect_faces(img, nets, **kwargs)
         for bb in bounding_boxes:
             cropped_images.append(crop_face(img, bb, margin=margin))
             corresponding_paths.append(path)
