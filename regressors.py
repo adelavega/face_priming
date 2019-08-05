@@ -63,7 +63,19 @@ def _get_face_times(row, all_faces, output):
         return pd.Series([np.nan, np.nan, np.nan, np.nan])
     else:
         return pd.Series([np.mean(time_since), np.max(time_since), np.mean(face_time_cum), np.max(face_time_cum)])
-    
+
+def _compute_time_dependent(subset, all_faces):
+    subset['first_time_face'] = subset.apply(_first_time, axis=1, all_faces=all_faces.copy())
+   
+    # Each run's offset
+    last_offset = subset.groupby('run_number').max()['onset'].cumsum()
+    subset['cum_onset'] = subset.apply(_calc_running_time, axis=1, last_offset=last_offset)
+
+    subset[['mean_time_since', 'max_time_since', 'mean_face_time_cum', 'max_face_time_cum']] = subset.apply(
+        _get_face_times, axis=1, all_faces=all_faces.copy(), output=subset)
+
+    return subset
+
 def prepare_regressors(frames, paths, clusters, bad_clusters=None):
     # Do face detection
     face_detection = _face_detection(paths)
@@ -77,18 +89,13 @@ def prepare_regressors(frames, paths, clusters, bad_clusters=None):
     all_faces = ["id_" + str(i) for i in range(1, len(clusters) + 1)]
     for bad in bad_clusters:
         all_faces.remove(f"id_{bad}")
+        
+    output = output.groupby('cond').apply(_compute_time_dependent, all_faces)
 
-    output['first_time_face'] = output.apply(_first_time, axis=1, all_faces=all_faces.copy())
-   
-    # Each run's offset
-    last_offset = output.groupby('run_number').max()['onset'].cumsum()
-    output['cum_onset'] = output.apply(_calc_running_time, axis=1, last_offset=last_offset)
-
-    output[['mean_time_since', 'max_time_since', 'mean_face_time_cum', 'max_face_time_cum']] = output.apply(
-        _get_face_times, axis=1, all_faces=all_faces.copy(), output=output)
     output['log_mean_time_since'] = np.log(output.mean_time_since)
     output['log_mean_face_time_cum'] = np.log(output.mean_face_time_cum)
     output['log_max_time_since'] = np.log(output.max_time_since)
     output['log_max_face_time_cum'] = np.log(output.max_face_time_cum)
+
     
     return output

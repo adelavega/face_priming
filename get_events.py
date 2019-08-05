@@ -1,9 +1,9 @@
 import pandas as pd
-def get_events(dataset_name, outfile=None):
+def get_events(dataset_name, mimetype='video/mp4', outfile=None):
     d_id = ms.Dataset.query.filter_by(name=dataset_name).one().id
     stim_ids = ms.Stimulus.query.filter_by(
         dataset_id=d_id, mimetype='image/png').with_entities('id')
-    unique_videos = ms.Stimulus.query.filter_by(dataset_id=d_id, mimetype='video/mp4').all()
+    unique_videos = ms.Stimulus.query.filter_by(dataset_id=d_id, mimetype=mimetype).all()
 
     all_events = []
     for v in unique_videos:
