@@ -43,7 +43,7 @@ def _calc_running_time(row, last_offset):
     if row.run_number == 1:
         return row.onset
     else:
-        return row.onset + last_offset[..run_number - 1]
+        return row.onset + last_offset[row.run_number - 1]
 
 def _get_face_times(row, all_faces, output):
     """ For every row, then every colum, time delta since face was last shown (in cummulative time),
