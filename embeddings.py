@@ -8,7 +8,7 @@ import imageio
 from src.facenet.facenet.src import facenet
 from src.facenet.facenet.src.align import detect_face
 
-MODEL_DIR = str(Path('models/20180402-114759/').absolute())
+MODEL_DIR = str(Path('/media/neuroscout-data/scratch/face_priming_save/models/20180402-114759/').absolute())
 
 def chunks(l, n):
     # For item i in a range that is a length of l,
